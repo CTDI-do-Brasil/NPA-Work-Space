@@ -22,3 +22,9 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Database local files
+*.db
+*.sqlite
+*.sqlite3
+npa_secure.db

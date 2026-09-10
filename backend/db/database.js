@@ -1,62 +1,105 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const { hashPassword } = require('../utils/security');
+require('dotenv').config();
 
-const dbPath = path.resolve(__dirname, '../../npa_secure.db');
-const db = new sqlite3.Database(dbPath);
+// PostgreSQL Pool configuration
+const poolConfig = process.env.DATABASE_URL
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+    }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5432', 10),
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_NAME || 'npa_workspace',
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000
+    };
+
+const pool = new Pool(poolConfig);
+
+pool.on('error', (err) => {
+  console.error('[POSTGRES] Unexpected client error on idle connection:', err.message);
+});
+
+const query = async (text, params) => {
+  return await pool.query(text, params);
+};
+
+const getClient = async () => {
+  return await pool.connect();
+};
 
 const initDb = async () => {
-  db.serialize(async () => {
-    // USERS TABLE
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT UNIQUE,
-      password TEXT,
-      role TEXT,
-      two_fa_secret TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  try {
+    console.log('[POSTGRES] Connecting to PostgreSQL and initializing schema...');
 
-    // TERMINALS TABLE
-    db.run(`CREATE TABLE IF NOT EXISTS terminals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      model TEXT UNIQUE,
-      name TEXT,
-      category TEXT,
-      manufacturer TEXT,
-      connectivity TEXT,
-      sap_code TEXT,
-      software_version TEXT,
-      battery_min INTEGER,
-      technical_password TEXT,
-      last_update DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    // 1. USERS TABLE
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(50) DEFAULT 'Admin',
+        two_fa_secret TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-    // REVISIONS TABLE
-    db.run(`CREATE TABLE IF NOT EXISTS revisions (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      version INTEGER UNIQUE,
-      revision_date TEXT,
-      description TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    // 2. TERMINALS TABLE
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS terminals (
+        id SERIAL PRIMARY KEY,
+        model VARCHAR(50) UNIQUE NOT NULL,
+        name VARCHAR(150),
+        category VARCHAR(50),
+        manufacturer VARCHAR(50),
+        connectivity VARCHAR(100),
+        sap_code VARCHAR(50),
+        software_version TEXT,
+        battery_min INTEGER DEFAULT 0,
+        technical_password VARCHAR(50),
+        last_update TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-    // AUDIT LOGS
-    db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      action TEXT,
-      ip_address TEXT,
-      details TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+    // 3. REVISIONS TABLE
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS revisions (
+        id SERIAL PRIMARY KEY,
+        version INTEGER UNIQUE NOT NULL,
+        revision_date VARCHAR(50),
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
 
-    // SEED DEFAULT ADMIN (if not exists)
+    // 4. AUDIT LOGS TABLE
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER,
+        action VARCHAR(100),
+        ip_address VARCHAR(100),
+        details TEXT,
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // 5. SEED DEFAULT ADMIN USER (if not exists)
     const adminPass = await hashPassword('Admin@NPA2026!');
-    db.run(`INSERT OR IGNORE INTO users (username, password, role) VALUES (?, ?, ?)`, 
-      ['admin', adminPass, 'Admin']);
+    await pool.query(
+      `INSERT INTO users (username, password, role)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (username) DO NOTHING`,
+      ['admin', adminPass, 'Admin']
+    );
 
-    // SEED INITIAL TERMINALS (insert or update)
+    // 6. SEED INITIAL TERMINALS (V87 Data)
     const initialTerminals = [
       { model: 'SP930', name: 'Newland · Cielo Flash', category: 'POS', manufacturer: 'Newland', connectivity: 'WiFi e GPRS', sap_code: '605569', software_version: 'CD21NSP9340', battery_min: 30, technical_password: '211117' },
       { model: 'ME60', name: 'Newland · Cielo ZIP', category: 'POS', manufacturer: 'Newland', connectivity: 'WiFi e GPRS', sap_code: '605668', software_version: 'CA19NME6040', battery_min: 30, technical_password: '211117' },
@@ -74,24 +117,24 @@ const initDb = async () => {
     ];
 
     for (const t of initialTerminals) {
-      db.run(
+      await pool.query(
         `INSERT INTO terminals (model, name, category, manufacturer, connectivity, sap_code, software_version, battery_min, technical_password)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          ON CONFLICT(model) DO UPDATE SET
-           name = excluded.name,
-           category = excluded.category,
-           manufacturer = excluded.manufacturer,
-           connectivity = excluded.connectivity,
-           sap_code = excluded.sap_code,
-           software_version = excluded.software_version,
-           battery_min = excluded.battery_min,
-           technical_password = excluded.technical_password,
+           name = EXCLUDED.name,
+           category = EXCLUDED.category,
+           manufacturer = EXCLUDED.manufacturer,
+           connectivity = EXCLUDED.connectivity,
+           sap_code = EXCLUDED.sap_code,
+           software_version = EXCLUDED.software_version,
+           battery_min = EXCLUDED.battery_min,
+           technical_password = EXCLUDED.technical_password,
            last_update = CURRENT_TIMESTAMP`,
         [t.model, t.name, t.category, t.manufacturer, t.connectivity, t.sap_code, t.software_version, t.battery_min, t.technical_password]
       );
     }
 
-    // SEED INITIAL REVISIONS (if not exists)
+    // 7. SEED INITIAL REVISIONS (V87 Data)
     const initialRevisions = [
       { version: 87, date: '24/08/2026', desc: 'Inclusão da versão 2.20 no terminal PPC930.' },
       { version: 86, date: '11/08/2026', desc: 'Correção da versão 2.0.00.045 no terminal GPOS720.' },
@@ -114,12 +157,29 @@ const initDb = async () => {
     ];
 
     for (const r of initialRevisions) {
-      db.run(`INSERT OR IGNORE INTO revisions (version, revision_date, description) VALUES (?, ?, ?)`,
-        [r.version, r.date, r.desc]);
+      await pool.query(
+        `INSERT INTO revisions (version, revision_date, description)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (version) DO NOTHING`,
+        [r.version, r.date, r.desc]
+      );
     }
 
-    console.log('[DATABASE] Secure Database Initialized with V87 Data');
-  });
+    console.log('[POSTGRES] PostgreSQL Database Initialized Successfully with V87 Schema & Data');
+  } catch (error) {
+    console.error('[POSTGRES] Connection/Initialization Notice:', error.message);
+    console.error('[POSTGRES] Ensure PostgreSQL is running and credentials in .env are configured.');
+  }
 };
 
-module.exports = { db, initDb };
+module.exports = {
+  db: {
+    query,
+    getClient,
+    pool
+  },
+  query,
+  getClient,
+  pool,
+  initDb
+};
