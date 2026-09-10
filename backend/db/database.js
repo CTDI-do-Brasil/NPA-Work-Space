@@ -9,11 +9,11 @@ const poolConfig = process.env.DATABASE_URL
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
     }
   : {
-      host: process.env.DB_HOST || 'localhost',
+      host: process.env.DB_HOST || 'srv-captain--db-postgres',
       port: parseInt(process.env.DB_PORT || '5432', 10),
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'npa_workspace',
+      database: process.env.DB_NAME || 'NPA Work Space',
       ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
       max: 20,
       idleTimeoutMillis: 30000,
