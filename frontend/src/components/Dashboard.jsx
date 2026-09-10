@@ -161,12 +161,11 @@ const Dashboard = ({ user, onLogout }) => {
   if (loading) {
     return <div className="auth-container" style={{color: '#fff', fontSize: '18px', fontWeight: '500'}}>Carregando Book NPA...</div>;
   }
-
   // Calculate stats dynamically
   const totalModels = terminals.length;
   const latestRevision = revisions[0];
-  const docVersion = latestRevision ? `v${latestRevision.version}` : 'v82';
-  const revisionDate = latestRevision ? latestRevision.revision_date : '17/06/2026';
+  const docVersion = latestRevision ? `v${latestRevision.version}` : 'v87';
+  const revisionDate = latestRevision ? latestRevision.revision_date : '24/08/2026';
 
   // Compute category chart data
   const posCount = terminals.filter(t => t.category === 'POS').length;
@@ -185,7 +184,7 @@ const Dashboard = ({ user, onLogout }) => {
 
   // Compute connectivity chart data
   const wifiCount = terminals.filter(t => t.connectivity.toLowerCase().includes('wifi') || t.connectivity.toLowerCase().includes('wi-fi') || t.connectivity.toLowerCase().includes('dual band')).length;
-  const mobileCount = terminals.filter(t => t.connectivity.toLowerCase().match(/gprs|3g|4g|2g/i)).length;
+  const mobileCount = terminals.filter(t => t.connectivity.toLowerCase().match(/gprs|3g|4g|cell/i)).length;
   const btCount = terminals.filter(t => t.connectivity.toLowerCase().match(/bluetooth|bt/i)).length;
   const usbSerialCount = terminals.filter(t => t.connectivity.toLowerCase().match(/usb|serial|dual/i)).length;
 
@@ -293,7 +292,7 @@ const Dashboard = ({ user, onLogout }) => {
       fields.push(
         <div className="t-row" key="cielo-mobile">
           <span className="t-key">Cielo Mobile</span>
-          <span className="t-val" style={{fontWeight: 'bold'}}>2.38.2 / 2.39.2 / 2.40.5</span>
+          <span className="t-val" style={{fontWeight: 'bold'}}>2.39.2 / 2.40.5</span>
         </div>
       );
     }

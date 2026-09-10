@@ -226,7 +226,7 @@ const assistantQuery = (req, res) => {
       if (q.includes('versao') || (revisions.length && q.includes('v' + revisions[0].version))) {
         const latest = revisions[0];
         return res.status(200).json({
-          response: `Estamos na versão <strong>V${latest ? latest.version : '82'}</strong> do Book NPA (Revisão ${latest ? latest.revision_date : '17/06/2026'}). A última grande atualização incluiu: ${latest ? latest.description : ''}`
+          response: `Estamos na versão <strong>V${latest ? latest.version : '87'}</strong> do Book NPA (Revisão ${latest ? latest.revision_date : '24/08/2026'}). A última grande atualização incluiu: ${latest ? latest.description : ''}`
         });
       }
 
