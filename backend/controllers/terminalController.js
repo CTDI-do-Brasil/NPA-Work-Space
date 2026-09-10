@@ -1,5 +1,6 @@
 const { db } = require('../db/database');
 const { parseBookPdf } = require('../utils/pdfParser');
+const minioService = require('../services/minioService');
 
 // GET ALL TERMINALS
 const getTerminals = async (req, res) => {
@@ -60,8 +61,22 @@ const uploadBook = async (req, res) => {
       );
     }
 
-    // 3. Log successful audit trail
-    const details = `Upload de Book NPA realizado com sucesso. Atualizado para versão ${docVersion} (${docDate}).`;
+    // 3. Archive Book PDF to MinIO
+    let minioFileUrl = null;
+    try {
+      const bookObjectName = `pdfs/books/Book_NPA_v${docVersion}_${Date.now()}.pdf`;
+      await minioService.uploadBuffer(bookObjectName, req.file.buffer, 'application/pdf', {
+        docVersion: String(docVersion),
+        docDate: String(docDate),
+        originalName: encodeURIComponent(req.file.originalname)
+      });
+      minioFileUrl = `/api/files/view/${bookObjectName}`;
+    } catch (minioErr) {
+      console.warn('[MINIO_ARCHIVE_WARN] Could not archive Book NPA to MinIO:', minioErr.message);
+    }
+
+    // 4. Log successful audit trail
+    const details = `Upload de Book NPA realizado com sucesso. Atualizado para versão ${docVersion} (${docDate}).${minioFileUrl ? ` Arquivado em: ${minioFileUrl}` : ''}`;
     await client.query(
       `INSERT INTO audit_logs (user_id, action, ip_address, details) VALUES ($1, $2, $3, $4)`,
       [req.user ? req.user.id : null, 'UPLOAD_BOOK', req.ip, details]
@@ -76,7 +91,8 @@ const uploadBook = async (req, res) => {
         documentDate: docDate,
         terminalsParsed: Object.keys(terminalVersions).length,
         revisionsFound: revisions.length,
-        updatedVersions: terminalVersions
+        updatedVersions: terminalVersions,
+        archiveUrl: minioFileUrl
       }
     });
   } catch (error) {

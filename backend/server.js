@@ -16,11 +16,13 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      mediaSrc: ["'self'", "data:", "blob:"],
+      frameSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
     },
   },
-  xFrameOptions: { action: 'deny' },
+  xFrameOptions: { action: 'sameorigin' },
   xContentTypeOptions: true,
   referrerPolicy: { policy: 'same-origin' },
 }));
@@ -48,16 +50,20 @@ app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 app.use(morgan('combined')); 
 
-// DATABASE INIT
+// DATABASE & OBJECT STORAGE INIT
 const { initDb } = require('./db/database');
+const { initMinio } = require('./services/minioService');
 initDb();
+initMinio();
 
 // ROUTES
 const authRoutes = require('./routes/authRoutes');
 const terminalRoutes = require('./routes/terminalRoutes');
+const fileRoutes = require('./routes/fileRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/terminals', terminalRoutes);
+app.use('/api/files', fileRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
