@@ -1,0 +1,11 @@
+node_modules
+*/node_modules
+.git
+.gitignore
+*.db
+*.sqlite
+*.sqlite3
+**/dist
+**/build
+backend/.env
+Critério cosmético Cielo - Visual

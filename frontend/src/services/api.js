@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const baseURL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : `http://${window.location.hostname}:5000/api`);
+
 const api = axios.create({
-  baseURL: `http://${window.location.hostname}:5000/api`,
+  baseURL,
   withCredentials: true, // For HttpOnly cookies
 });
 
@@ -22,7 +24,7 @@ api.interceptors.response.use((response) => {
 }, async (error) => {
   const originalRequest = error.config;
   
-  if (error.response.status === 401 && !originalRequest._retry) {
+  if (error.response && error.response.status === 401 && !originalRequest._retry) {
     originalRequest._retry = true;
     // Here you would normally call a refresh endpoint
     // and update the token. For this version, we redirect to login.
