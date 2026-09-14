@@ -3,6 +3,7 @@ import api from '../services/api';
 import '../styles/Login.css';
 import { User, Lock, Eye, EyeOff, Shield, ArrowRight } from 'lucide-react';
 import loginBackground from '../assets/login_background.jpg';
+import ctdiLogo from '../assets/ctdi_logo.png';
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('');
@@ -101,20 +102,9 @@ const Login = ({ onLogin }) => {
       <div className="login-right-pane">
         <div className="grid-spacer-top"></div>
         <div className="login-glass-card">
-          {/* CTDI Diamond Logo */}
-          <div className="logo-container-diamonds">
-            <div className="logo-diamond">
-              <span className="logo-letter">C</span>
-            </div>
-            <div className="logo-diamond">
-              <span className="logo-letter">T</span>
-            </div>
-            <div className="logo-diamond">
-              <span className="logo-letter">D</span>
-            </div>
-            <div className="logo-diamond">
-              <span className="logo-letter">I</span>
-            </div>
+          {/* CTDI Official Logo */}
+          <div className="login-logo-wrapper">
+            <img src={ctdiLogo} alt="CTDI" className="login-ctdi-logo" />
           </div>
 
           <h2 className="login-welcome-title">Bem-vindo</h2>
