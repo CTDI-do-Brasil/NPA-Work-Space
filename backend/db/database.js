@@ -3,8 +3,10 @@ const path = require('path');
 const { hashPassword } = require('../utils/security');
 require('dotenv').config();
 
-// Determine default driver: 'sqlite' or 'postgres'
-let activeDriver = process.env.DB_CLIENT || (process.env.NODE_ENV === 'production' ? 'postgres' : 'sqlite');
+// Determine default driver: if DATABASE_URL or DB_CLIENT=postgres or production -> 'postgres'
+let activeDriver = (process.env.DATABASE_URL || process.env.DB_CLIENT === 'postgres' || process.env.NODE_ENV === 'production')
+  ? 'postgres'
+  : (process.env.DB_CLIENT || 'sqlite');
 
 // SQLite Setup (Lazy Loaded)
 let sqlite3 = null;
@@ -60,31 +62,72 @@ const querySqlite = (text, params = []) => {
   });
 };
 
-// PostgreSQL Setup
-const poolConfig = process.env.DATABASE_URL
-  ? {
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+// PostgreSQL Setup & Normalization
+const parsePgUrl = (urlStr) => {
+  try {
+    const pgcs = require('pg-connection-string');
+    const parsed = pgcs.parse(urlStr);
+    if (parsed.database) {
+      // Decode URL encoding and replace '+' with space for database name
+      parsed.database = decodeURIComponent(parsed.database.replace(/\+/g, ' '));
     }
-  : {
-      host: process.env.DB_HOST || 'srv-captain--db-postgres',
-      port: parseInt(process.env.DB_PORT || '5432', 10),
-      user: process.env.DB_USER || 'postgres',
-      password: process.env.DB_PASSWORD || 'postgres',
-      database: process.env.DB_NAME || 'NPA Work Space',
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
-      max: 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000
-    };
+    return parsed;
+  } catch (err) {
+    console.error('[POSTGRES] Failed to parse DATABASE_URL:', err.message);
+    return null;
+  }
+};
 
-let pool = null;
-if (activeDriver === 'postgres') {
-  pool = new Pool(poolConfig);
-  pool.on('error', (err) => {
-    console.error('[POSTGRES] Unexpected client error on idle connection:', err.message);
-  });
-}
+const getPoolConfig = () => {
+  if (process.env.DATABASE_URL) {
+    const parsed = parsePgUrl(process.env.DATABASE_URL);
+    if (parsed) {
+      return {
+        user: parsed.user,
+        password: parsed.password,
+        host: parsed.host,
+        port: parsed.port ? parseInt(parsed.port, 10) : 5432,
+        database: parsed.database || 'NPA Work Space',
+        ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+        max: 20,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000
+      };
+    }
+  }
+
+  return {
+    host: process.env.DB_HOST || 'srv-captain--db-postgres',
+    port: parseInt(process.env.DB_PORT || '5432', 10),
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || '9e6014c2d78f6c84',
+    database: process.env.DB_NAME || 'NPA Work Space',
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    max: 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000
+  };
+};
+
+let poolInstance = null;
+const getPool = () => {
+  if (!poolInstance) {
+    const config = getPoolConfig();
+    console.log(`[POSTGRES] Configured connection to host: ${config.host}:${config.port}, database: "${config.database}", user: "${config.user}"`);
+    poolInstance = new Pool(config);
+    poolInstance.on('error', (err) => {
+      console.error('[POSTGRES] Unexpected client error on idle connection:', err.message);
+    });
+  }
+  return poolInstance;
+};
+
+const pool = {
+  query: (...args) => getPool().query(...args),
+  connect: (...args) => getPool().connect(...args),
+  end: (...args) => poolInstance ? poolInstance.end(...args) : Promise.resolve(),
+  on: (...args) => getPool().on(...args)
+};
 
 const query = async (text, params) => {
   if (activeDriver === 'sqlite') {
@@ -332,7 +375,7 @@ const initDb = async () => {
   try {
     await initPostgres();
   } catch (error) {
-    console.warn('[POSTGRES] Connection failed:', error.message);
+    console.error('[POSTGRES] Connection failed:', error.message);
     console.warn('[POSTGRES] Falling back to local SQLite database (npa_secure.db)...');
     activeDriver = 'sqlite';
     await initSqlite();

@@ -28,3 +28,6 @@ Thumbs.db
 *.sqlite
 *.sqlite3
 npa_secure.db
+
+# Scratch and test files
+scratch/

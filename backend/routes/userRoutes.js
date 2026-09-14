@@ -4,6 +4,14 @@ const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
 
 const router = express.Router();
 
+// Desabilitar cache para garantir que listagens reflitam o estado atual do banco
+router.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // Apenas Administradores podem listar e criar novos usuários
 router.get('/', authenticateToken, authorizeRoles('Admin'), listUsers);
 router.post('/', authenticateToken, authorizeRoles('Admin'), createUser);
