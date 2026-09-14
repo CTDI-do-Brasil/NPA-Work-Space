@@ -1,5 +1,4 @@
 const { Pool } = require('pg');
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { hashPassword } = require('../utils/security');
 require('dotenv').config();
@@ -7,7 +6,15 @@ require('dotenv').config();
 // Determine default driver: 'sqlite' or 'postgres'
 let activeDriver = process.env.DB_CLIENT || (process.env.NODE_ENV === 'production' ? 'postgres' : 'sqlite');
 
-// SQLite Setup
+// SQLite Setup (Lazy Loaded)
+let sqlite3 = null;
+const getSqlite3 = () => {
+  if (!sqlite3) {
+    sqlite3 = require('sqlite3').verbose();
+  }
+  return sqlite3;
+};
+
 const sqliteDbPath = process.env.DB_SQLITE_PATH 
   ? path.resolve(process.cwd(), process.env.DB_SQLITE_PATH)
   : path.resolve(__dirname, '../../npa_secure.db');
@@ -16,7 +23,8 @@ let sqliteDbInstance = null;
 
 const getSqliteDb = () => {
   if (!sqliteDbInstance) {
-    sqliteDbInstance = new sqlite3.Database(sqliteDbPath, (err) => {
+    const s3 = getSqlite3();
+    sqliteDbInstance = new s3.Database(sqliteDbPath, (err) => {
       if (err) {
         console.error('[SQLITE] Error connecting to SQLite database at', sqliteDbPath, err.message);
       } else {
