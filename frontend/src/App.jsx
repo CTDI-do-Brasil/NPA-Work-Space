@@ -10,20 +10,38 @@ const App = () => {
   useEffect(() => {
     // Check if user is already logged in (token in localStorage)
     const storedToken = localStorage.getItem('accessToken');
+    const storedUser = localStorage.getItem('currentUser');
     if (storedToken) {
-      // In a real app, you would verify the token with the backend here
-      // For now, we assume if it exists, it's valid for the UI state
-      // (The API interceptor will handle actual expiration)
-      setUser({ username: 'admin', role: 'Admin' }); // Simplified
+      if (storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          setUser({ username: 'admin', role: 'Admin' });
+        }
+      } else {
+        setUser({ username: 'admin', role: 'Admin' });
+      }
     }
     setLoading(false);
   }, []);
 
   const handleLogin = (userData) => {
+    if (userData) {
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+    }
+    setUser(userData);
+  };
+
+  const handleUpdateUser = (userData) => {
+    if (userData) {
+      localStorage.setItem('currentUser', JSON.stringify(userData));
+    }
     setUser(userData);
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('accessToken');
     setUser(null);
   };
 
@@ -38,7 +56,7 @@ const App = () => {
         />
         <Route 
           path="/" 
-          element={user ? <Dashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} 
+          element={user ? <Dashboard user={user} onLogout={handleLogout} onUpdateUser={handleUpdateUser} /> : <Navigate to="/login" />} 
         />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>

@@ -66,10 +66,12 @@ initMinio();
 const authRoutes = require('./routes/authRoutes');
 const terminalRoutes = require('./routes/terminalRoutes');
 const fileRoutes = require('./routes/fileRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/terminals', terminalRoutes);
 app.use('/api/files', fileRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
@@ -87,9 +89,25 @@ if (fs.existsSync(publicDir)) {
   });
 }
 
+// PROCESS CRASH GUARDS
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL UNCAUGHT EXCEPTION]', err);
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[FATAL UNHANDLED REJECTION]', reason);
+});
+
+// 404 FOR UNDEFINED API ROUTES
+app.use('/api', (req, res, next) => {
+  if (req.path === '/' || req.path === '') {
+    return res.status(200).json({ status: 'healthy', version: '1.0.0' });
+  }
+  next();
+});
+
 // ERROR HANDLING
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('[SERVER ERROR]', err.stack || err.message || err);
   res.status(500).json({ 
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'production' ? 'Something went wrong' : err.message
@@ -97,6 +115,10 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 80 : 5000);
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`[SECURITY] Secure Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+});
+
+server.on('error', (err) => {
+  console.error('[SERVER LISTEN ERROR]', err.message);
 });

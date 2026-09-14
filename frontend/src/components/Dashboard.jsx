@@ -3,15 +3,16 @@ import '../styles/Dashboard.css';
 import { 
   Layout, Shield, Terminal, Settings, LogOut, BarChart2, 
   Clock, FileText, Upload, CheckCircle2, AlertCircle, 
-  HelpCircle, ChevronRight, MessageSquare, Send 
+  HelpCircle, ChevronRight, MessageSquare, Send, User 
 } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
 import api from '../services/api';
+import UserManager from './UserManager';
 
 ChartJS.register(ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
-const Dashboard = ({ user, onLogout }) => {
+const Dashboard = ({ user, onLogout, onUpdateUser }) => {
   const [activeTab, setActiveTab] = useState('visao-geral');
   const [terminals, setTerminals] = useState([]);
   const [revisions, setRevisions] = useState([]);
@@ -210,6 +211,7 @@ const Dashboard = ({ user, onLogout }) => {
     { id: 'visual-criterios', label: 'Visual - Critério cosmético' },
     { id: 'historico', label: 'Histórico' },
     { id: 'upload', label: 'Upload Book' },
+    { id: 'usuarios', label: '👥 Gerenciar Logins' },
     { id: 'assistente', label: '💬 Assistente IA', customStyle: { color: 'var(--cielo-blue)', fontWeight: '600' } }
   ];
 
@@ -395,6 +397,27 @@ const Dashboard = ({ user, onLogout }) => {
             <span style={{ color: '#fff', fontSize: '13px' }}>
               Bem-vindo, <strong>{user.username}</strong>
             </span>
+            {user.role === 'Admin' && (
+              <button 
+                onClick={() => setActiveTab('usuarios')} 
+                style={{ 
+                  border: '1px solid rgba(255,255,255,0.25)', 
+                  background: activeTab === 'usuarios' ? 'var(--cielo-blue)' : 'rgba(255,255,255,0.1)', 
+                  color: '#fff', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '5px', 
+                  padding: '4px 10px', 
+                  borderRadius: '20px', 
+                  fontSize: '11px', 
+                  cursor: 'pointer', 
+                  fontWeight: '600' 
+                }}
+                title="Criar e gerenciar logins"
+              >
+                <User size={12} /> Logins
+              </button>
+            )}
             <button onClick={handleLogout} style={{ border: 'none', background: 'rgba(255,77,77,0.15)', color: '#ff4d4d', display: 'flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', cursor: 'pointer', fontWeight: '600' }}>
               <LogOut size={12} /> Sair
             </button>
@@ -407,6 +430,7 @@ const Dashboard = ({ user, onLogout }) => {
         <div className="nav-inner">
           {tabs.map(tab => {
             if (tab.id === 'upload' && user.role !== 'Admin') return null;
+            if (tab.id === 'usuarios' && user.role !== 'Admin') return null;
             return (
               <button 
                 key={tab.id} 
@@ -976,6 +1000,11 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* GERENCIAR LOGINS TAB */}
+        {activeTab === 'usuarios' && (
+          <UserManager currentUser={user} onCurrentUserUpdate={onUpdateUser} />
         )}
 
         {/* ASSISTANT IA TAB */}
