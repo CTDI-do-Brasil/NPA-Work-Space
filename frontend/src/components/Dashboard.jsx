@@ -3,7 +3,8 @@ import '../styles/Dashboard.css';
 import { 
   Layout, Shield, Terminal, Settings, LogOut, BarChart2, 
   Clock, FileText, Upload, CheckCircle2, AlertCircle, 
-  HelpCircle, ChevronRight, MessageSquare, Send, User 
+  HelpCircle, ChevronRight, MessageSquare, Send, User,
+  Key, Lock, Eye, EyeOff 
 } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { Doughnut, Bar } from 'react-chartjs-2';
@@ -20,6 +21,15 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
   const [selectedTerminal, setSelectedTerminal] = useState(null);
   const [selectedVisualModel, setSelectedVisualModel] = useState('SP930');
   
+  // Change Password States (disponível para qualquer usuário logado)
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+
   // Upload States
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -84,6 +94,39 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
       onLogout();
     } catch (err) {
       console.error('Logout error', err);
+    }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    if (passwordForm.newPassword.length < 6) {
+      setPasswordError('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('A confirmação da senha não coincide com a nova senha.');
+      return;
+    }
+
+    setPasswordLoading(true);
+    try {
+      const res = await api.post('/auth/change-password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword
+      });
+      setPasswordSuccess(res.data.message || 'Senha alterada com sucesso!');
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }, 1200);
+    } catch (err) {
+      setPasswordError(err.response?.data?.error || 'Erro ao alterar a senha.');
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -208,7 +251,7 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
     { id: 'smart', label: 'Smart Terminais' },
     { id: 'versoes', label: 'Tabela de Versões' },
     { id: 'criterios', label: 'Critério de Validação' },
-    { id: 'visual-criterios', label: 'Visual - Critério cosmético' },
+    { id: 'visual-criterios', label: 'Visual - Acessórios' },
     { id: 'historico', label: 'Histórico' },
     { id: 'upload', label: 'Upload Book' },
     { id: 'usuarios', label: '👥 Gerenciar Logins' },
@@ -397,6 +440,30 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
             <span style={{ color: '#fff', fontSize: '13px' }}>
               Bem-vindo, <strong>{user.username}</strong>
             </span>
+            <button 
+              onClick={() => {
+                setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+                setPasswordError('');
+                setPasswordSuccess('');
+                setShowPasswordModal(true);
+              }}
+              style={{ 
+                border: '1px solid rgba(255,255,255,0.25)', 
+                background: 'rgba(255,255,255,0.1)', 
+                color: '#fff', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '5px', 
+                padding: '4px 10px', 
+                borderRadius: '20px', 
+                fontSize: '11px', 
+                cursor: 'pointer', 
+                fontWeight: '600' 
+              }}
+              title="Alterar minha senha de acesso"
+            >
+              <Key size={12} /> Alterar Senha
+            </button>
             {user.role === 'Admin' && (
               <button 
                 onClick={() => setActiveTab('usuarios')} 
@@ -1180,6 +1247,109 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
           </button>
         </div>
       </div>
+
+      {/* MODAL ALTERAR MINHA SENHA */}
+      {showPasswordModal && (
+        <div className="modal-overlay open" onClick={(e) => e.target.classList.contains('modal-overlay') && setShowPasswordModal(false)}>
+          <div className="modal-box" style={{ maxWidth: '440px' }}>
+            <div className="modal-head">
+              <button className="modal-close" onClick={() => setShowPasswordModal(false)}>✕</button>
+              <div className="modal-title" style={{ fontSize: '20px' }}>Alterar Senha</div>
+              <div className="modal-subtitle">Atualize sua senha de acesso ({user.username})</div>
+            </div>
+            
+            <form onSubmit={handlePasswordSubmit} className="modal-body" style={{ padding: '24px' }}>
+              {passwordError && (
+                <div className="um-alert-error">
+                  <AlertCircle size={16} />
+                  <span>{passwordError}</span>
+                </div>
+              )}
+              {passwordSuccess && (
+                <div className="um-alert-success">
+                  <CheckCircle2 size={16} />
+                  <span>{passwordSuccess}</span>
+                </div>
+              )}
+
+              <div className="um-form-group">
+                <label>Senha Atual <span style={{ fontWeight: 'normal', color: 'var(--text-muted)' }}>(opcional se primeiro acesso)</span></label>
+                <div className="um-input-with-icon">
+                  <Lock size={18} className="input-icon" />
+                  <input 
+                    type={showCurrentPass ? 'text' : 'password'} 
+                    placeholder="Digite sua senha atual..." 
+                    value={passwordForm.currentPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
+                  />
+                  <button 
+                    type="button" 
+                    className="input-eye-btn"
+                    onClick={() => setShowCurrentPass(!showCurrentPass)}
+                  >
+                    {showCurrentPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="um-form-group">
+                <label>Nova Senha</label>
+                <div className="um-input-with-icon">
+                  <Key size={18} className="input-icon" />
+                  <input 
+                    type={showNewPass ? 'text' : 'password'} 
+                    required 
+                    minLength={6}
+                    placeholder="Mínimo 6 caracteres" 
+                    value={passwordForm.newPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                  />
+                  <button 
+                    type="button" 
+                    className="input-eye-btn"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                  >
+                    {showNewPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="um-form-group">
+                <label>Confirmar Nova Senha</label>
+                <div className="um-input-with-icon">
+                  <Key size={18} className="input-icon" />
+                  <input 
+                    type={showNewPass ? 'text' : 'password'} 
+                    required 
+                    minLength={6}
+                    placeholder="Repita a nova senha" 
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="um-modal-footer">
+                <button 
+                  type="button" 
+                  className="btn-secondary" 
+                  onClick={() => setShowPasswordModal(false)}
+                  disabled={passwordLoading}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-primary"
+                  disabled={passwordLoading}
+                >
+                  {passwordLoading ? 'Salvando...' : 'Salvar Nova Senha'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );
