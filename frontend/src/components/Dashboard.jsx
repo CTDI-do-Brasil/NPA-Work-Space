@@ -65,13 +65,33 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
     }
   };
 
+  const navigateToTabAndModel = (tabId, model) => {
+    if (tabId) {
+      setActiveTab(tabId);
+    }
+    if (model) {
+      setSelectedVisualModel(model);
+    }
+    setIsAgentOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleChatContainerClick = (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const tab = btn.getAttribute('data-tab');
+    const model = btn.getAttribute('data-model');
+    if (tab) {
+      e.preventDefault();
+      e.stopPropagation();
+      navigateToTabAndModel(tab, model);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     window.setTabAndModel = (tabId, model) => {
-      setActiveTab(tabId);
-      if (model) {
-        setSelectedVisualModel(model);
-      }
+      navigateToTabAndModel(tabId, model);
     };
     return () => {
       delete window.setTabAndModel;
@@ -251,7 +271,7 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
     { id: 'smart', label: 'Smart Terminais' },
     { id: 'versoes', label: 'Tabela de Versões' },
     { id: 'criterios', label: 'Critério de Validação' },
-    { id: 'visual-criterios', label: 'Visual - Acessórios' },
+    { id: 'visual-criterios', label: 'Visual - Critério cosmético' },
     { id: 'historico', label: 'Histórico' },
     { id: 'upload', label: 'Upload Book' },
     { id: 'usuarios', label: '👥 Gerenciar Logins' },
@@ -1085,7 +1105,7 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
                   <div className="chat-status"><span style={{display: 'inline-block', width: '6px', height: '6px', background: '#10B981', borderRadius: '50%', marginRight: '6px'}}></span>Online · Book NPA {docVersion}</div>
                 </div>
               </div>
-              <div className="chat-messages">
+              <div className="chat-messages" onClick={handleChatContainerClick}>
                 {chatMessages.map((msg, i) => (
                   <div 
                     key={i} 
@@ -1211,7 +1231,7 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
           </div>
           <button className="agent-close-btn" onClick={() => setIsAgentOpen(false)}>✕</button>
         </div>
-        <div className="agent-messages">
+        <div className="agent-messages" onClick={handleChatContainerClick}>
           {chatMessages.map((msg, i) => (
             <div 
               key={i} 

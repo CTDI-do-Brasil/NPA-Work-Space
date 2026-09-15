@@ -152,8 +152,8 @@ const assistantQuery = async (req, res) => {
         
         if (matchedModel) {
           return res.status(200).json({
-            response: `Com certeza! Você pode visualizar as fotos e critérios cosméticos do terminal <strong>${matchedModel}</strong> na aba <strong>"Visual - Acessórios"</strong>.<br><br>` + 
-                      `<button class="chat-sug-btn" onclick="window.setTabAndModel('visual-criterios', '${matchedModel}')" style="display: flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--cielo-dark); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer;">` +
+            response: `Com certeza! Você pode visualizar as fotos e critérios cosméticos do terminal <strong>${matchedModel}</strong> na aba <strong>"Visual - Critério cosmético"</strong>.<br><br>` + 
+                      `<button class="chat-sug-btn" data-tab="visual-criterios" data-model="${matchedModel}" onclick="window.setTabAndModel('visual-criterios', '${matchedModel}')" style="display: flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--cielo-dark); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer;">` +
                       `🔍 Ir para Critério Cosmético de ${matchedModel}` +
                       `</button>`
           });
@@ -161,8 +161,8 @@ const assistantQuery = async (req, res) => {
       }
       
       return res.status(200).json({
-        response: `Você pode ver a galeria de imagens e critérios cosméticos de todos os modelos na aba <strong>"Visual - Acessórios"</strong>.<br><br>` +
-                  `<button class="chat-sug-btn" onclick="window.setTabAndModel('visual-criterios', 'SP930')" style="display: flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--cielo-dark); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer;">` +
+        response: `Você pode ver a galeria de imagens e critérios cosméticos de todos os modelos na aba <strong>"Visual - Critério cosmético"</strong>.<br><br>` +
+                  `<button class="chat-sug-btn" data-tab="visual-criterios" data-model="SP930" onclick="window.setTabAndModel('visual-criterios', 'SP930')" style="display: flex; align-items: center; gap: 8px; margin-top: 10px; background: var(--cielo-dark); color: #fff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; cursor: pointer;">` +
                   `🔍 Acessar Critério Cosmético` +
                   `</button>`
       });
