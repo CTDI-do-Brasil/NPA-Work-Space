@@ -107,6 +107,13 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
     }
   }, [chatMessages]);
 
+  useEffect(() => {
+    const activeEl = document.querySelector('.nav-tab.active');
+    if (activeEl) {
+      activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+  }, [activeTab]);
+
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
@@ -514,7 +521,14 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
 
       {/* TABS */}
       <nav className="nav-tabs">
-        <div className="nav-inner">
+        <div 
+          className="nav-inner" 
+          onWheel={(e) => {
+            if (e.deltaY !== 0) {
+              e.currentTarget.scrollLeft += e.deltaY;
+            }
+          }}
+        >
           {tabs.map(tab => {
             if (tab.id === 'upload' && user.role !== 'Admin') return null;
             if (tab.id === 'usuarios' && user.role !== 'Admin') return null;
