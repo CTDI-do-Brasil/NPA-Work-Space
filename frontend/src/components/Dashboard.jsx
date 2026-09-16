@@ -271,7 +271,7 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
     { id: 'smart', label: 'Smart Terminais' },
     { id: 'versoes', label: 'Tabela de Versões' },
     { id: 'criterios', label: 'Critério de Validação' },
-    { id: 'visual-criterios', label: 'Visual - Critério cosmético' },
+    { id: 'visual-criterios', label: 'Visual - Acessórios' },
     { id: 'historico', label: 'Histórico' },
     { id: 'upload', label: 'Upload Book' },
     { id: 'usuarios', label: '👥 Gerenciar Logins' },
