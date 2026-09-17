@@ -117,10 +117,12 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
-      localStorage.removeItem('accessToken');
-      onLogout();
     } catch (err) {
       console.error('Logout error', err);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('currentUser');
+      onLogout();
     }
   };
 

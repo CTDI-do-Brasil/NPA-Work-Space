@@ -1,3 +1,4 @@
+const jwt = require('jsonwebtoken');
 const { db } = require('../db/database');
 const { verifyPassword, generateAccessToken, generateRefreshToken } = require('../utils/security');
 const { z } = require('zod');
@@ -72,6 +73,38 @@ const logout = (req, res) => {
   res.status(200).json({ message: 'Logged out successfully' });
 };
 
+const refreshToken = async (req, res) => {
+  const token = req.cookies?.refreshToken;
+  if (!token) {
+    return res.status(401).json({ error: 'Refresh token not found.', code: 'NO_REFRESH_TOKEN' });
+  }
+
+  jwt.verify(token, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
+    if (err) {
+      res.clearCookie('refreshToken');
+      return res.status(401).json({ error: 'Invalid or expired refresh token.', code: 'INVALID_REFRESH_TOKEN' });
+    }
+
+    try {
+      const userResult = await db.query(`SELECT id, username, role FROM users WHERE id = $1`, [decoded.id]);
+      const user = userResult.rows[0];
+      if (!user) {
+        res.clearCookie('refreshToken');
+        return res.status(401).json({ error: 'User not found.', code: 'USER_NOT_FOUND' });
+      }
+
+      const newAccessToken = generateAccessToken(user);
+      return res.status(200).json({
+        accessToken: newAccessToken,
+        user: { id: user.id, username: user.username, role: user.role }
+      });
+    } catch (dbErr) {
+      console.error('[REFRESH_ERROR]', dbErr);
+      return res.status(500).json({ error: 'Failed to refresh token.' });
+    }
+  });
+};
+
 const changePasswordSchema = z.object({
   currentPassword: z.string().optional().or(z.literal('')),
   newPassword: z.string().min(6, 'A nova senha deve ter pelo menos 6 caracteres')
@@ -131,4 +164,4 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { login, logout, changePassword };
+module.exports = { login, logout, refreshToken, changePassword };

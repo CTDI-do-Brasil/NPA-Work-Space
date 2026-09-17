@@ -18,21 +18,81 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// RESPONSE INTERCEPTOR (Handle expiration and errors)
-api.interceptors.response.use((response) => {
-  return response;
-}, async (error) => {
-  const originalRequest = error.config;
-  
-  if (error.response && error.response.status === 401 && !originalRequest._retry) {
-    originalRequest._retry = true;
-    // Here you would normally call a refresh endpoint
-    // and update the token. For this version, we redirect to login.
-    localStorage.removeItem('accessToken');
-    window.location.href = '/login';
+// RESPONSE INTERCEPTOR (Handle expiration, refresh and errors)
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
+    const isAuthEndpoint = originalRequest.url?.includes('/auth/login') || originalRequest.url?.includes('/auth/refresh');
+    const isTokenError = error.response && (
+      error.response.status === 401 ||
+      (error.response.status === 403 && typeof error.response.data?.error === 'string' && error.response.data.error.toLowerCase().includes('token'))
+    );
+
+    if (isTokenError && !isAuthEndpoint && !originalRequest._retry) {
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((token) => {
+            originalRequest.headers.Authorization = `Bearer ${token}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const response = await axios.post(`${baseURL}/auth/refresh`, {}, { withCredentials: true });
+        const newToken = response.data?.accessToken;
+
+        if (newToken) {
+          localStorage.setItem('accessToken', newToken);
+          if (response.data?.user) {
+            localStorage.setItem('currentUser', JSON.stringify(response.data.user));
+          }
+
+          api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+
+          processQueue(null, newToken);
+          return api(originalRequest);
+        }
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('currentUser');
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(refreshErr);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
   }
-  
-  return Promise.reject(error);
-});
+);
 
 export default api;

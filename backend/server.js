@@ -10,6 +10,9 @@ require('dotenv').config();
 
 const app = express();
 
+// TRUST PROXY (behind CapRover / Nginx reverse proxy)
+app.set('trust proxy', 1);
+
 // SECURITY HEADERS
 app.use(helmet({
   contentSecurityPolicy: {
@@ -42,14 +45,25 @@ app.use(cors({
 }));
 
 // RATE LIMITING
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again after 15 minutes',
+// Stricter limiter specifically for login attempts (brute force protection)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30, // 30 login attempts per 15 minutes
+  message: { error: 'Muitas tentativas de login. Tente novamente após 15 minutos.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
+app.use('/api/auth/login', loginLimiter);
+
+// General API rate limiter for regular SPA activity
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 1500, // allow up to 1500 requests per 15 minutes
+  message: { error: 'Limite de requisições excedido. Tente novamente em breve.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
 
 // PARSERS
 app.use(express.json({ limit: '10kb' })); 
