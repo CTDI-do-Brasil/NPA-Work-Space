@@ -168,11 +168,32 @@ const assistantQuery = async (req, res) => {
       });
     }
 
-    // Search by model name or name
-    const foundTerminal = terminals.find(t => 
+    // Check for comparison between two terminals (e.g. "L300 e L400", "diferença entre X e Y")
+    const matchedTerminals = terminals.filter(t => 
       q.includes(t.model.toLowerCase()) || 
       (t.name && q.includes(t.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
     );
+
+    if (matchedTerminals.length >= 2) {
+      const [t1, t2] = matchedTerminals;
+      let resp = `Aqui está o comparativo técnico entre <strong>${t1.model}</strong> e <strong>${t2.model}</strong>:<br><br>`;
+      resp += `<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px;">`;
+      resp += `<thead><tr style="background: rgba(0, 105, 180, 0.1); border-bottom: 2px solid #0069B4;"><th style="padding: 6px; text-align: left;">Especificação</th><th style="padding: 6px; text-align: left;">${t1.model}</th><th style="padding: 6px; text-align: left;">${t2.model}</th></tr></thead>`;
+      resp += `<tbody>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Fabricante / Modelo</td><td style="padding: 6px;">${t1.manufacturer} (${t1.name})</td><td style="padding: 6px;">${t2.manufacturer} (${t2.name})</td></tr>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Categoria</td><td style="padding: 6px;">${t1.category}</td><td style="padding: 6px;">${t2.category}</td></tr>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Conectividade</td><td style="padding: 6px;"><code>${t1.connectivity}</code></td><td style="padding: 6px;"><code>${t2.connectivity}</code></td></tr>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Código SAP</td><td style="padding: 6px;"><code>${t1.sap_code}</code></td><td style="padding: 6px;"><code>${t2.sap_code}</code></td></tr>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Software Homologado</td><td style="padding: 6px;"><code>${t1.software_version}</code></td><td style="padding: 6px;"><code>${t2.software_version}</code></td></tr>`;
+      resp += `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 6px; font-weight: bold;">Senha Técnica</td><td style="padding: 6px;"><code>${t1.technical_password}</code></td><td style="padding: 6px;"><code>${t2.technical_password}</code></td></tr>`;
+      resp += `<tr><td style="padding: 6px; font-weight: bold;">Bateria Mínima</td><td style="padding: 6px;"><code>${t1.battery_min}%</code></td><td style="padding: 6px;"><code>${t2.battery_min}%</code></td></tr>`;
+      resp += `</tbody></table></div>`;
+      return res.status(200).json({ response: resp });
+    }
+
+    // Search by SAP code directly or model name
+    const foundBySap = terminals.find(t => t.sap_code && q.includes(t.sap_code.toLowerCase().trim()));
+    const foundTerminal = foundBySap || (matchedTerminals.length > 0 ? matchedTerminals[0] : null);
 
     if (foundTerminal) {
       let resp = `Com certeza! Aqui estão os detalhes técnicos do <strong>${foundTerminal.model}</strong> (${foundTerminal.name}):<br><br>`;

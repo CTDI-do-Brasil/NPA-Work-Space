@@ -225,7 +225,22 @@ const Dashboard = ({ user, onLogout, onUpdateUser }) => {
       const response = await api.post('/terminals/assistant', { query: msg });
       setChatMessages(prev => [...prev, { text: response.data.response, sender: 'bot' }]);
     } catch (err) {
-      setChatMessages(prev => [...prev, { text: 'Ocorreu um erro no assistente. Tente novamente mais tarde.', sender: 'bot' }]);
+      console.error('[CHAT_ERROR]', err);
+      let errorMsg = 'Ocorreu um erro no assistente. Tente novamente mais tarde.';
+
+      if (err.response) {
+        if (err.response.status === 401) {
+          errorMsg = 'Sua sessão expirou. Por favor, recarregue a página (F5) ou faça login novamente.';
+        } else if (err.response.status === 429) {
+          errorMsg = 'Muitas perguntas enviadas em sequência. Aguarde alguns segundos antes de tentar novamente.';
+        } else if (err.response.data && err.response.data.error) {
+          errorMsg = err.response.data.error;
+        }
+      } else if (err.code === 'ERR_NETWORK' || !err.response) {
+        errorMsg = 'Falha na conexão com o servidor. Verifique sua conexão com a rede.';
+      }
+
+      setChatMessages(prev => [...prev, { text: errorMsg, sender: 'bot' }]);
     } finally {
       setChatLoading(false);
     }
